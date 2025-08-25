@@ -14,7 +14,9 @@ import { useTheme } from '../contexts/ThemeContext';
 import { theme } from '../theme';
 import { databaseService } from '../services/DatabaseService';
 import { Subject, ExamType } from '../types';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+
+// Use web-compatible icons only
+const Icon = require('../components/WebIcon').default;
 
 interface Topic {
   id: string;

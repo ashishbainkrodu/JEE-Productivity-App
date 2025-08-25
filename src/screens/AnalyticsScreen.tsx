@@ -11,8 +11,10 @@ import { useTheme } from '../contexts/ThemeContext';
 import { theme } from '../theme';
 import { databaseService } from '../services/DatabaseService';
 import { Subject, Progress, Streak, TimeAnalytics } from '../types';
-import Icon from 'react-native-vector-icons/MaterialIcons';
 import moment from 'moment';
+
+// Use web-compatible icons only
+const Icon = require('../components/WebIcon').default;
 
 const { width } = Dimensions.get('window');
 

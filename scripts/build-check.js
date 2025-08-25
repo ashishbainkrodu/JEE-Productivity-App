@@ -7,7 +7,6 @@ console.log('🔍 Checking build compatibility...');
 const mobileOnlyImports = [
   'react-native-sqlite-storage',
   'react-native-push-notification',
-  'react-native-vector-icons',
   'react-native-chart-kit',
   'react-native-svg',
 ];

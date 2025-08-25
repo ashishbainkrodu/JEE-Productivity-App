@@ -18,9 +18,8 @@ import {
 } from '../types';
 import moment from 'moment';
 
-// Use web-compatible icons
-const isWeb = typeof window !== 'undefined';
-const Icon = isWeb ? require('../components/WebIcon').default : require('react-native-vector-icons/MaterialIcons').default;
+// Use web-compatible icons only
+const Icon = require('../components/WebIcon').default;
 
 const HomeScreen: React.FC = () => {
   const { isDarkMode } = useTheme();

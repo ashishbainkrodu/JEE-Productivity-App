@@ -14,7 +14,8 @@ import { useTheme } from '../contexts/ThemeContext';
 import { theme } from '../theme';
 import { databaseService } from '../services/DatabaseService';
 import { notificationService } from '../services/NotificationService';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+// Use web-compatible icons only
+const Icon = require('../components/WebIcon').default;
 import moment from 'moment';
 
 interface SettingItem {
