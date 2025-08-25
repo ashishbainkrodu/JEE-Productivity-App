@@ -11,6 +11,8 @@ import { useTheme } from '../contexts/ThemeContext';
 import { theme } from '../theme';
 import { databaseService } from '../services/DatabaseService';
 import { notificationService } from '../services/NotificationService';
+import { webDatabaseService } from '../services/WebDatabaseService';
+import { webNotificationService } from '../services/WebNotificationService';
 import {
   Subject,
   Progress,
@@ -21,6 +23,11 @@ import {
 } from '../types';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import moment from 'moment';
+
+// Use web services when running on web
+const isWeb = typeof window !== 'undefined';
+const dbService = isWeb ? webDatabaseService : databaseService;
+const notifService = isWeb ? webNotificationService : notificationService;
 
 const HomeScreen: React.FC = () => {
   const { isDarkMode } = useTheme();
@@ -42,13 +49,13 @@ const HomeScreen: React.FC = () => {
 
   const loadData = async () => {
     try {
-      await databaseService.initDatabase();
+      await dbService.initDatabase();
       const [subjectsData, progressData, streakData, todosData, sessionsData] = await Promise.all([
-        databaseService.getSubjects(),
-        databaseService.getProgress(),
-        databaseService.getStreak(),
-        databaseService.getTodoItems(),
-        databaseService.getStudySessions(moment().format('YYYY-MM-DD')),
+        dbService.getSubjects(),
+        dbService.getProgress(),
+        dbService.getStreak(),
+        dbService.getTodoItems(),
+        dbService.getStudySessions(moment().format('YYYY-MM-DD')),
       ]);
 
       setSubjects(subjectsData);
