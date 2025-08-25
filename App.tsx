@@ -3,7 +3,6 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import Icon from 'react-native-vector-icons/MaterialIcons';
 
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import HomeScreen from './src/screens/HomeScreen';
@@ -12,6 +11,10 @@ import SubjectsScreen from './src/screens/SubjectsScreen';
 import AnalyticsScreen from './src/screens/AnalyticsScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import { theme } from './src/theme';
+
+// Use web-compatible icons
+const isWeb = typeof window !== 'undefined';
+const Icon = isWeb ? require('./src/components/WebIcon').default : require('react-native-vector-icons/MaterialIcons').default;
 
 const Tab = createBottomTabNavigator();
 

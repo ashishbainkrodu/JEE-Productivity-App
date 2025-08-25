@@ -2,6 +2,14 @@
   "buildCommand": "npm run build:vercel",
   "outputDirectory": "dist",
   "framework": null,
-  "installCommand": "npm install --legacy-peer-deps",
-  "devCommand": "npm run web"
+  "installCommand": "npm install --legacy-peer-deps --force",
+  "devCommand": "npm run web",
+  "functions": {
+    "api/**/*.js": {
+      "runtime": "nodejs18.x"
+    }
+  },
+  "env": {
+    "NODE_ENV": "production"
+  }
 }

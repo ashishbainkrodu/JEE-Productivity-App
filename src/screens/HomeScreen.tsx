@@ -21,11 +21,13 @@ import {
   StudySession,
   ExamCountdown,
 } from '../types';
-import Icon from 'react-native-vector-icons/MaterialIcons';
 import moment from 'moment';
 
-// Use web services when running on web
+// Use web-compatible icons
 const isWeb = typeof window !== 'undefined';
+const Icon = isWeb ? require('../components/WebIcon').default : require('react-native-vector-icons/MaterialIcons').default;
+
+// Use web services when running on web
 const dbService = isWeb ? webDatabaseService : databaseService;
 const notifService = isWeb ? webNotificationService : notificationService;
 
