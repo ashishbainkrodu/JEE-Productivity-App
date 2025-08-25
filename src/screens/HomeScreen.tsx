@@ -9,15 +9,10 @@ import {
 } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 import { theme } from '../theme';
-import { databaseService } from '../services/DatabaseService';
-import { notificationService } from '../services/NotificationService';
-import { webDatabaseService } from '../services/WebDatabaseService';
-import { webNotificationService } from '../services/WebNotificationService';
+import { simpleDataService } from '../services/SimpleDataService';
 import {
   Subject,
   Progress,
-  Streak,
-  TodoItem,
   StudySession,
   ExamCountdown,
 } from '../types';
@@ -27,18 +22,12 @@ import moment from 'moment';
 const isWeb = typeof window !== 'undefined';
 const Icon = isWeb ? require('../components/WebIcon').default : require('react-native-vector-icons/MaterialIcons').default;
 
-// Use web services when running on web
-const dbService = isWeb ? webDatabaseService : databaseService;
-const notifService = isWeb ? webNotificationService : notificationService;
-
 const HomeScreen: React.FC = () => {
   const { isDarkMode } = useTheme();
   const currentTheme = isDarkMode ? theme.dark : theme.light;
 
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [progress, setProgress] = useState<Progress | null>(null);
-  const [streak, setStreak] = useState<Streak | null>(null);
-  const [todayTodos, setTodayTodos] = useState<TodoItem[]>([]);
   const [todaySessions, setTodaySessions] = useState<StudySession[]>([]);
   const [examCountdown, setExamCountdown] = useState<ExamCountdown>({
     jeeMains: { nextDate: '2024-01-15', daysLeft: 45, topicsRemaining: 12 },
@@ -51,38 +40,34 @@ const HomeScreen: React.FC = () => {
 
   const loadData = async () => {
     try {
-      await dbService.initDatabase();
-      const [subjectsData, progressData, streakData, todosData, sessionsData] = await Promise.all([
-        dbService.getSubjects(),
-        dbService.getProgress(),
-        dbService.getStreak(),
-        dbService.getTodoItems(),
-        dbService.getStudySessions(moment().format('YYYY-MM-DD')),
+      await simpleDataService.initData();
+      const [subjectsData, progressData] = await Promise.all([
+        simpleDataService.getSubjects(),
+        simpleDataService.getProgress(),
       ]);
 
       setSubjects(subjectsData);
       setProgress(progressData);
-      setStreak(streakData);
-      setTodayTodos(todosData.filter(todo => !todo.completed).slice(0, 5));
-      setTodaySessions(sessionsData);
+      
+      // Get today's sessions
+      const today = moment().format('YYYY-MM-DD');
+      const allSessions = await simpleDataService.getAllStudySessions();
+      const todaySessionsData = allSessions
+        .filter(session => moment(session.date).format('YYYY-MM-DD') === today)
+        .map(session => ({
+          id: session.id,
+          subject: subjectsData.find(s => s.id === session.subject) || subjectsData[0],
+          duration: session.duration,
+          date: session.date,
+          notes: session.notes || '',
+          topics: [session.chapter],
+          examType: 'jeeMains' as const
+        }));
+      
+      setTodaySessions(todaySessionsData);
     } catch (error) {
       console.error('Error loading data:', error);
       Alert.alert('Error', 'Failed to load data');
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'urgent':
-        return currentTheme.colors.error;
-      case 'high':
-        return currentTheme.colors.warning;
-      case 'medium':
-        return currentTheme.colors.info;
-      case 'low':
-        return currentTheme.colors.success;
-      default:
-        return currentTheme.colors.text;
     }
   };
 
@@ -92,238 +77,172 @@ const HomeScreen: React.FC = () => {
   };
 
   const startStudySession = () => {
-    // Navigate to study session screen
     Alert.alert('Start Study Session', 'Navigate to study session screen');
   };
 
   const addTodo = () => {
-    // Navigate to add todo screen
     Alert.alert('Add Todo', 'Navigate to add todo screen');
   };
 
   const viewCalendar = () => {
-    // Navigate to calendar screen
     Alert.alert('View Calendar', 'Navigate to calendar screen');
   };
 
   const startPomodoro = () => {
-    // Navigate to pomodoro timer screen
-    Alert.alert('Start Pomodoro', 'Navigate to pomodoro timer screen');
+    Alert.alert('Start Pomodoro', 'Navigate to pomodoro screen');
+  };
+
+  const formatDuration = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours > 0) {
+      return `${hours}h ${mins}m`;
+    }
+    return `${mins}m`;
+  };
+
+  const getTotalTodayTime = () => {
+    return todaySessions.reduce((total, session) => total + session.duration, 0);
   };
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: currentTheme.colors.background }]}
-      showsVerticalScrollIndicator={false}
-    >
+    <ScrollView style={[styles.container, { backgroundColor: currentTheme.colors.background }]}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: currentTheme.colors.surface }]}>
-        <Text style={[styles.greeting, { color: currentTheme.colors.text }]}>
-          Good {moment().hour() < 12 ? 'Morning' : moment().hour() < 17 ? 'Afternoon' : 'Evening'}! 👋
+        <Text style={[styles.headerTitle, { color: currentTheme.colors.text }]}>
+          Welcome to JEE Prep! 🚀
         </Text>
-        <Text style={[styles.subtitle, { color: currentTheme.colors.textSecondary }]}>
-          Ready to ace your JEE preparation?
+        <Text style={[styles.headerSubtitle, { color: currentTheme.colors.textSecondary }]}>
+          Track your progress and stay motivated
         </Text>
       </View>
 
-      {/* Exam Countdown */}
-      <View style={[styles.countdownContainer, { backgroundColor: currentTheme.colors.surface }]}>
-        <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>
-          🎯 Exam Countdown
-        </Text>
-        <View style={styles.countdownRow}>
-          <View style={[styles.countdownCard, { backgroundColor: currentTheme.colors.jeeMains }]}>
-            <Text style={styles.countdownTitle}>JEE Mains</Text>
-            <Text style={styles.countdownDays}>{examCountdown.jeeMains.daysLeft}</Text>
-            <Text style={styles.countdownLabel}>Days Left</Text>
-          </View>
-          <View style={[styles.countdownCard, { backgroundColor: currentTheme.colors.jeeAdvanced }]}>
-            <Text style={styles.countdownTitle}>JEE Advanced</Text>
-            <Text style={styles.countdownDays}>{examCountdown.jeeAdvanced.daysLeft}</Text>
-            <Text style={styles.countdownLabel}>Days Left</Text>
-          </View>
+      {/* Quick Stats */}
+      <View style={styles.statsContainer}>
+        <View style={[styles.statCard, { backgroundColor: currentTheme.colors.surface }]}>
+          <Icon name="timer" size={24} color={currentTheme.colors.primary} />
+          <Text style={[styles.statValue, { color: currentTheme.colors.text }]}>
+            {formatDuration(getTotalTodayTime())}
+          </Text>
+          <Text style={[styles.statLabel, { color: currentTheme.colors.textSecondary }]}>
+            Today's Study Time
+          </Text>
+        </View>
+
+        <View style={[styles.statCard, { backgroundColor: currentTheme.colors.surface }]}>
+          <Icon name="book" size={24} color={currentTheme.colors.primary} />
+          <Text style={[styles.statValue, { color: currentTheme.colors.text }]}>
+            {subjects.length}
+          </Text>
+          <Text style={[styles.statLabel, { color: currentTheme.colors.textSecondary }]}>
+            Active Subjects
+          </Text>
         </View>
       </View>
 
-      {/* Overall Progress */}
-      <View style={[styles.progressContainer, { backgroundColor: currentTheme.colors.surface }]}>
+      {/* Subjects Progress */}
+      <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>
-          📊 Overall Progress
-        </Text>
-        <View style={styles.progressBar}>
-          <View
-            style={[
-              styles.progressFill,
-              {
-                width: `${progress?.overall || 0}%`,
-                backgroundColor: currentTheme.colors.primary,
-              },
-            ]}
-          />
-        </View>
-        <Text style={[styles.progressText, { color: currentTheme.colors.textSecondary }]}>
-          {progress?.overall || 0}% Complete
-        </Text>
-      </View>
-
-      {/* Subject Progress */}
-      <View style={[styles.subjectsContainer, { backgroundColor: currentTheme.colors.surface }]}>
-        <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>
-          📚 Subject Progress
+          Subject Progress
         </Text>
         {subjects.map((subject) => (
-          <View key={subject.id} style={styles.subjectRow}>
-            <View style={styles.subjectInfo}>
-              <View
-                style={[styles.subjectColor, { backgroundColor: subject.color }]}
-              />
+          <View key={subject.id} style={[styles.subjectCard, { backgroundColor: currentTheme.colors.surface }]}>
+            <View style={styles.subjectHeader}>
+              <View style={[styles.subjectColor, { backgroundColor: subject.color }]} />
               <Text style={[styles.subjectName, { color: currentTheme.colors.text }]}>
                 {subject.name}
               </Text>
-            </View>
-            <View style={styles.subjectProgress}>
-              <View style={styles.progressBar}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    {
-                      width: `${subject.progress}%`,
-                      backgroundColor: subject.color,
-                    },
-                  ]}
-                />
-              </View>
-              <Text style={[styles.progressText, { color: currentTheme.colors.textSecondary }]}>
+              <Text style={[styles.subjectProgress, { color: currentTheme.colors.primary }]}>
                 {subject.progress}%
               </Text>
             </View>
+            <View style={styles.progressBar}>
+              <View 
+                style={[
+                  styles.progressFill, 
+                  { 
+                    width: `${subject.progress}%`, 
+                    backgroundColor: subject.color 
+                  }
+                ]} 
+              />
+            </View>
+            <Text style={[styles.subjectDetails, { color: currentTheme.colors.textSecondary }]}>
+              {subject.completedTopics} of {subject.totalTopics} chapters completed
+            </Text>
           </View>
         ))}
       </View>
 
-      {/* Streak */}
-      <View style={[styles.streakContainer, { backgroundColor: currentTheme.colors.surface }]}>
-        <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>
-          🔥 Study Streak
-        </Text>
-        <View style={styles.streakInfo}>
-          <View style={styles.streakCard}>
-            <Text style={[styles.streakNumber, { color: currentTheme.colors.primary }]}>
-              {streak?.current || 0}
-            </Text>
-            <Text style={[styles.streakLabel, { color: currentTheme.colors.textSecondary }]}>
-              Current
-            </Text>
-          </View>
-          <View style={styles.streakCard}>
-            <Text style={[styles.streakNumber, { color: currentTheme.colors.secondary }]}>
-              {streak?.longest || 0}
-            </Text>
-            <Text style={[styles.streakLabel, { color: currentTheme.colors.textSecondary }]}>
-              Longest
-            </Text>
-          </View>
-        </View>
-      </View>
-
       {/* Quick Actions */}
-      <View style={[styles.actionsContainer, { backgroundColor: currentTheme.colors.surface }]}>
+      <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>
-          ⚡ Quick Actions
+          Quick Actions
         </Text>
         <View style={styles.actionButtons}>
-          <TouchableOpacity
+          <TouchableOpacity 
             style={[styles.actionButton, { backgroundColor: currentTheme.colors.primary }]}
             onPress={startStudySession}
           >
-            <Icon name="play-arrow" size={24} color="white" />
-            <Text style={styles.actionButtonText}>Start Study</Text>
+            <Icon name="add" size={24} color="white" />
+            <Text style={styles.actionButtonText}>Start Study Session</Text>
           </TouchableOpacity>
-          <TouchableOpacity
+
+          <TouchableOpacity 
             style={[styles.actionButton, { backgroundColor: currentTheme.colors.secondary }]}
-            onPress={addTodo}
-          >
-            <Icon name="add-task" size={24} color="white" />
-            <Text style={styles.actionButtonText}>Add Todo</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: currentTheme.colors.info }]}
             onPress={viewCalendar}
           >
             <Icon name="calendar-today" size={24} color="white" />
-            <Text style={styles.actionButtonText}>Calendar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: currentTheme.colors.warning }]}
-            onPress={startPomodoro}
-          >
-            <Icon name="timer" size={24} color="white" />
-            <Text style={styles.actionButtonText}>Pomodoro</Text>
+            <Text style={styles.actionButtonText}>View Calendar</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Today's Tasks */}
-      <View style={[styles.tasksContainer, { backgroundColor: currentTheme.colors.surface }]}>
-        <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>
-          📋 Today's Tasks
-        </Text>
-        {todayTodos.length > 0 ? (
-          todayTodos.map((todo) => (
-            <View key={todo.id} style={styles.todoItem}>
-              <View style={styles.todoInfo}>
-                <Text style={[styles.todoTitle, { color: currentTheme.colors.text }]}>
-                  {todo.title}
-                </Text>
-                {todo.description && (
-                  <Text style={[styles.todoDescription, { color: currentTheme.colors.textSecondary }]}>
-                    {todo.description}
-                  </Text>
-                )}
-              </View>
-              <View
-                style={[
-                  styles.priorityIndicator,
-                  { backgroundColor: getPriorityColor(todo.priority) },
-                ]}
-              />
-            </View>
-          ))
-        ) : (
-          <Text style={[styles.noTasksText, { color: currentTheme.colors.textSecondary }]}>
-            No tasks for today. Great job! 🎉
+      {/* Today's Sessions */}
+      {todaySessions.length > 0 && (
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>
+            Today's Study Sessions
           </Text>
-        )}
-      </View>
-
-      {/* Today's Study Sessions */}
-      <View style={[styles.sessionsContainer, { backgroundColor: currentTheme.colors.surface }]}>
-        <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>
-          📚 Today's Study Sessions
-        </Text>
-        {todaySessions.length > 0 ? (
-          todaySessions.map((session) => (
-            <View key={session.id} style={styles.sessionItem}>
-              <View style={styles.sessionInfo}>
+          {todaySessions.map((session) => (
+            <View key={session.id} style={[styles.sessionCard, { backgroundColor: currentTheme.colors.surface }]}>
+              <View style={styles.sessionHeader}>
                 <Text style={[styles.sessionSubject, { color: getSubjectColor(session.subject.id) }]}>
                   {session.subject.name}
                 </Text>
                 <Text style={[styles.sessionDuration, { color: currentTheme.colors.textSecondary }]}>
-                  {session.duration} min
+                  {formatDuration(session.duration)}
                 </Text>
               </View>
+              <Text style={[styles.sessionTopics, { color: currentTheme.colors.text }]}>
+                {session.topics.join(', ')}
+              </Text>
               {session.notes && (
                 <Text style={[styles.sessionNotes, { color: currentTheme.colors.textSecondary }]}>
                   {session.notes}
                 </Text>
               )}
             </View>
-          ))
-        ) : (
-          <Text style={[styles.noSessionsText, { color: currentTheme.colors.textSecondary }]}>
-            No study sessions today. Time to start studying! 📖
+          ))}
+        </View>
+      )}
+
+      {/* Exam Countdown */}
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>
+          Exam Countdown
+        </Text>
+        <View style={[styles.countdownCard, { backgroundColor: currentTheme.colors.surface }]}>
+          <Text style={[styles.countdownTitle, { color: currentTheme.colors.text }]}>
+            JEE Mains
           </Text>
-        )}
+          <Text style={[styles.countdownDays, { color: currentTheme.colors.primary }]}>
+            {examCountdown.jeeMains.daysLeft} days left
+          </Text>
+          <Text style={[styles.countdownTopics, { color: currentTheme.colors.textSecondary }]}>
+            {examCountdown.jeeMains.topicsRemaining} topics remaining
+          </Text>
+        </View>
       </View>
     </ScrollView>
   );
@@ -335,165 +254,109 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 20,
-    marginBottom: 16,
+    alignItems: 'center',
+    marginBottom: 20,
   },
-  greeting: {
+  headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 4,
+    marginBottom: 8,
   },
-  subtitle: {
+  headerSubtitle: {
     fontSize: 16,
+    textAlign: 'center',
   },
-  countdownContainer: {
-    margin: 16,
+  statsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  statCard: {
+    flex: 1,
     padding: 16,
+    marginHorizontal: 5,
     borderRadius: 12,
+    alignItems: 'center',
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  section: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: 'bold',
     marginBottom: 16,
   },
-  countdownRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  countdownCard: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 8,
-    marginHorizontal: 4,
-    alignItems: 'center',
-  },
-  countdownTitle: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  countdownDays: {
-    color: 'white',
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  countdownLabel: {
-    color: 'white',
-    fontSize: 12,
-  },
-  progressContainer: {
-    margin: 16,
+  subjectCard: {
     padding: 16,
     borderRadius: 12,
+    marginBottom: 12,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+  },
+  subjectHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  subjectColor: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  subjectName: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  subjectProgress: {
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   progressBar: {
     height: 8,
     backgroundColor: '#E0E0E0',
     borderRadius: 4,
     marginBottom: 8,
-    overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
     borderRadius: 4,
   },
-  progressText: {
+  subjectDetails: {
     fontSize: 14,
-    textAlign: 'center',
-  },
-  subjectsContainer: {
-    margin: 16,
-    padding: 16,
-    borderRadius: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  subjectRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  subjectInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  subjectColor: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    marginRight: 12,
-  },
-  subjectName: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  subjectProgress: {
-    flex: 1,
-    marginLeft: 16,
-  },
-  streakContainer: {
-    margin: 16,
-    padding: 16,
-    borderRadius: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  streakInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  streakCard: {
-    alignItems: 'center',
-  },
-  streakNumber: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  streakLabel: {
-    fontSize: 14,
-  },
-  actionsContainer: {
-    margin: 16,
-    padding: 16,
-    borderRadius: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
   },
   actionButtons: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     justifyContent: 'space-between',
   },
   actionButton: {
-    width: '48%',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 12,
+    flex: 1,
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
+    padding: 16,
+    borderRadius: 12,
+    marginHorizontal: 5,
   },
   actionButtonText: {
     color: 'white',
@@ -501,66 +364,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
   },
-  tasksContainer: {
-    margin: 16,
+  sessionCard: {
     padding: 16,
     borderRadius: 12,
+    marginBottom: 12,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-  todoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-  },
-  todoInfo: {
-    flex: 1,
-  },
-  todoTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 4,
-  },
-  todoDescription: {
-    fontSize: 14,
-  },
-  priorityIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginLeft: 12,
-  },
-  noTasksText: {
-    textAlign: 'center',
-    fontStyle: 'italic',
-    paddingVertical: 20,
-  },
-  sessionsContainer: {
-    margin: 16,
-    padding: 16,
-    borderRadius: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    marginBottom: 32,
-  },
-  sessionItem: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-  },
-  sessionInfo: {
+  sessionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 8,
   },
   sessionSubject: {
     fontSize: 16,
@@ -569,14 +387,36 @@ const styles = StyleSheet.create({
   sessionDuration: {
     fontSize: 14,
   },
-  sessionNotes: {
+  sessionTopics: {
     fontSize: 14,
+    marginBottom: 4,
+  },
+  sessionNotes: {
+    fontSize: 12,
     fontStyle: 'italic',
   },
-  noSessionsText: {
-    textAlign: 'center',
-    fontStyle: 'italic',
-    paddingVertical: 20,
+  countdownCard: {
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  countdownTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  countdownDays: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  countdownTopics: {
+    fontSize: 14,
   },
 });
 

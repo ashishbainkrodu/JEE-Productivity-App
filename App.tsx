@@ -12,9 +12,8 @@ import AnalyticsScreen from './src/screens/AnalyticsScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import { theme } from './src/theme';
 
-// Use web-compatible icons
-const isWeb = typeof window !== 'undefined';
-const Icon = isWeb ? require('./src/components/WebIcon').default : require('react-native-vector-icons/MaterialIcons').default;
+// Use web-compatible icons only
+const Icon = require('./src/components/WebIcon').default;
 
 const Tab = createBottomTabNavigator();
 

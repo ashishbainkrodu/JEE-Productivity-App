@@ -29,26 +29,40 @@ sourceFiles.forEach(file => {
     const content = fs.readFileSync(filePath, 'utf8');
     
     mobileOnlyImports.forEach(importName => {
-      if (content.includes(importName) && !content.includes('isWeb')) {
-        console.error(`❌ ${file}: Direct import of ${importName} without web check`);
+      if (content.includes(importName)) {
+        console.error(`❌ ${file}: Found mobile-only import ${importName}`);
         hasErrors = true;
       }
     });
   }
 });
 
-// Check web components exist
+// Check required web components exist
 const webComponents = [
   'src/components/WebIcon.tsx',
-  'src/components/WebChart.tsx',
-  'src/services/WebDatabaseService.ts',
-  'src/services/WebNotificationService.ts',
+  'src/services/SimpleDataService.ts',
 ];
 
 webComponents.forEach(component => {
   const componentPath = path.join(__dirname, '..', component);
   if (!fs.existsSync(componentPath)) {
     console.error(`❌ Missing web component: ${component}`);
+    hasErrors = true;
+  }
+});
+
+// Check that problematic services are removed
+const removedServices = [
+  'src/services/NotificationService.ts',
+  'src/services/DatabaseService.ts',
+  'src/services/WebDatabaseService.ts',
+  'src/services/WebNotificationService.ts',
+];
+
+removedServices.forEach(service => {
+  const servicePath = path.join(__dirname, '..', service);
+  if (fs.existsSync(servicePath)) {
+    console.error(`❌ Problematic service still exists: ${service}`);
     hasErrors = true;
   }
 });

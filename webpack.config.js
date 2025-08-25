@@ -17,8 +17,6 @@ module.exports = (env, argv) => {
       alias: {
         'react-native$': 'react-native-web',
         'react-native-svg': 'react-native-svg-web',
-        'react-native-vector-icons/MaterialIcons': path.resolve(__dirname, 'src/components/WebIcon.tsx'),
-        'react-native-chart-kit': path.resolve(__dirname, 'src/components/WebChart.tsx'),
       },
       fallback: {
         "fs": false,
