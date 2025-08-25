@@ -8,11 +8,11 @@ class NotificationService {
 
   private configurePushNotifications(): void {
     PushNotification.configure({
-      onRegister: function (token) {
+      onRegister: function (token: string) {
         console.log('TOKEN:', token);
       },
 
-      onNotification: function (notification) {
+      onNotification: function (notification: any) {
         console.log('NOTIFICATION:', notification);
       },
 
@@ -36,7 +36,7 @@ class NotificationService {
         importance: 4,
         vibrate: true,
       },
-      (created) => console.log(`Channel created: ${created}`)
+      (created: boolean) => console.log(`Channel created: ${created}`)
     );
   }
 
